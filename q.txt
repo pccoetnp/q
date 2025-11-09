@@ -806,104 +806,95 @@ else:
 Q 2 : 
 
 
-Without sender receiver : 
-
 import random
-import time
 import math
+import time
 
-def is_prime(n):
-    if n <= 1:
+def is_prime(num):
+    if num <= 1:
         return False
-    for i in range(2, int(math.sqrt(n)) + 1):
-        if n % i == 0:
+    for i in range(2, int(num ** 0.5) + 1):
+        if num % i == 0:
             return False
     return True
 
 def gcd(a, b):
-    while b:
+    while b != 0:
         a, b = b, a % b
     return a
 
-def extended_gcd(a, b):
-    if a == 0:
-        return b, 0, 1
-    g, x1, y1 = extended_gcd(b % a, a)
-    x = y1 - (b // a) * x1
-    y = x1
-    return g, x, y
+def mod_inverse(a, m):
+    for i in range(1, m):
+        if (a * i) % m == 1:
+            return i
+    return None
 
-def mod_inverse(e, phi):
-    g, x, _ = extended_gcd(e, phi)
-    if g != 1:
-        raise ValueError("Inverse doesn't exist")
-    return x % phi
+def generate_keypair():
+    # Generate random prime numbers
+    p = q = 1
+    while not is_prime(p):
+        p = random.randint(100, 500)
+    while not is_prime(q) or p == q:
+        q = random.randint(100, 500)
+    n = p * q
+    phi = (p - 1) * (q - 1)
 
-def find_coprime(phi):
-    while True:
+    # Choose e such that gcd(e, phi) = 1
+    e = random.randint(2, phi - 1)
+    while gcd(e, phi) != 1:
         e = random.randint(2, phi - 1)
-        if gcd(e, phi) == 1:
-            return e
 
+    # Compute d (modular inverse of e)
+    d = mod_inverse(e, phi)
+    return (e, n), (d, n)
+
+def rsa_encrypt(message, public_key):
+    e, n = public_key
+    return [pow(ord(ch), e, n) for ch in message]
+
+def rsa_decrypt(encrypted_message, private_key):
+    d, n = private_key
+    return ''.join([chr(pow(ch, d, n)) for ch in encrypted_message])
 
 
 print("=== RSA Secure Communication Simulation ===\n")
 
 # Step 1: Key Generation
-p = int(input("Enter first prime number (p): "))
-q = int(input("Enter second prime number (q): "))
+print("Generating keys for A (sender) and B (receiver)...")
+public_key_A, private_key_A = generate_keypair()
+public_key_B, private_key_B = generate_keypair()
 
-if not (is_prime(p) and is_prime(q)):
-    print("❌ Both p and q must be prime!")
+print(f"\nPublic Key of B (Receiver): {public_key_B}")
+print(f"Private Key of B (Receiver): {private_key_B}\n")
+
+# Step 2: Encryption
+message = input("Enter message from A → B: ")
+
+start_enc = time.perf_counter()
+encrypted_message = rsa_encrypt(message, public_key_B)
+enc_time = time.perf_counter() - start_enc
+
+print("\nEncrypted Message:", encrypted_message)
+print(f"Encryption Time → {enc_time:.6f} seconds")
+
+# Step 3: Attacker Simulation
+try:
+    print("\nZ (attacker) trying to decrypt message...")
+    rsa_decrypt(encrypted_message, ("fake", "key"))
+except:
+    print("Z (attacker) failed — not authorized to decrypt message.")
+
+# Step 4: Decryption
+start_dec = time.perf_counter()
+decrypted_message = rsa_decrypt(encrypted_message, private_key_B)
+dec_time = time.perf_counter() - start_dec
+
+print("\nReceiver Side:")
+print("Decrypted Message:", decrypted_message)
+print(f"Decryption Time → {dec_time:.6f} seconds")
+
+# Step 5: Verification (Integrity Check)
+if decrypted_message == message:
+    print("✅ Message Integrity Verified — Message not altered.")
 else:
-    n = p * q
-    phi = (p - 1) * (q - 1)
-    e = find_coprime(phi)
-    d = mod_inverse(e, phi)
-
-    print(f"\n Public Key: (e={e}, n={n})")
-    print(f" Private Key: (d={d}, n={n})\n")
-
-    # Step 2: Encryption
-    while True:
-        try:
-            plaintext = int(input("Enter integer plaintext to encrypt: "))
-            if plaintext <= 0 or plaintext >= n:
-                raise ValueError("Plaintext must be between 1 and n-1.")
-            break
-        except ValueError as ve:
-            print(f"Invalid input: {ve}. Try again.")
-
-    start_enc = time.perf_counter()
-    cipher_text = pow(plaintext, e, n)
-    enc_time = time.perf_counter() - start_enc
-
-    print(f"\nCiphertext → {cipher_text}")
-    print(f"Encryption Time → {enc_time:.6f} seconds")
-
-    # Step 3: Decryption
-    start_dec = time.perf_counter()
-    decrypted_text = pow(cipher_text, d, n)
-    dec_time = time.perf_counter() - start_dec
-
-    print(f"\nCiphertext received → {cipher_text}")
-    print(f"Decrypted Text → {decrypted_text}")
-    print(f"Decryption Time → {dec_time:.6f} seconds")
-
-    # Step 4: Verification
-    if decrypted_text == plaintext:
-        print("\n✅ Message Integrity Verified: The message is not altered.")
-    else:
-        print("\n⚠️ Message Integrity Failed: The message was altered!")
-
-
-
-
-
-
-
- 
-
-
-
-
+    print("❌ Message Integrity Failed — Message was modified.")
